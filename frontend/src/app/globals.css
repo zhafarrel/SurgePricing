@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  --color-uber-black: #000000;
+  --color-uber-white: #FFFFFF;
+  --color-uber-gray-50: #F6F6F6;
+  --color-uber-gray-100: #E2E2E2;
+  --color-uber-gray-200: #CBCBCB;
+  --color-uber-gray-300: #A6A6A6;
+  --color-uber-gray-400: #737373;
+  --color-uber-gray-500: #545454;
+  --color-uber-accent: #276EF1; /* Uber's standard blue accent */
+  --color-uber-error: #E11900;
+  --color-uber-success: #05A357;
+  --color-uber-warning: #FFC043;
+}
+
+:root {
+  background-color: var(--color-uber-gray-50);
+  color: var(--color-uber-black);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}

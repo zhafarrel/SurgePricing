@@ -18,8 +18,8 @@ redisClient.on('error', (err) => console.log('Redis Client Error', err));
 
 // Konstanta Bisnis
 const HARGA_DASAR = 100000;
-const TARGET_REVENUE = 15000000;
-const STOK_AWAL = 100;
+const STOK_AWAL = 3; // Ubah ke 3 untuk memudahkan simulasi testing tab
+const TARGET_REVENUE = HARGA_DASAR * STOK_AWAL; // Target revenue rasional untuk stok yang ada
 
 // GET STATUS 
 app.get('/api/status', async (req, res) => {
@@ -40,10 +40,11 @@ app.get('/api/status', async (req, res) => {
 
         if (stok > 0) {
             const rasio = viewers / stok;
-            if (rasio > 10) {
+            // Diubah threshold-nya agar lebih gampang dites (tidak perlu buka terlalu banyak tab)
+            if (rasio > 4) {
                 harga_demand = HARGA_DASAR * 2.5;
                 status = "CRITICAL SURGE";
-            } else if (rasio > 5) {
+            } else if (rasio > 2) {
                 harga_demand = HARGA_DASAR * 1.5;
                 status = "SURGE PRICING";
             }
@@ -127,7 +128,7 @@ async function startServer() {
 
     // Reset data setiap kali server menyala
     await redisClient.set('ticket:vip:active_viewers', 0);
-    await redisClient.set('ticket:vip:stock_left', 3);
+    await redisClient.set('ticket:vip:stock_left', STOK_AWAL);
     await redisClient.set('ticket:vip:current_revenue', 0);
     await redisClient.set('ticket:vip:current_price', HARGA_DASAR);
 
