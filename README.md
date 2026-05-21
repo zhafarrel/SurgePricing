@@ -132,39 +132,6 @@ node server.js
 
 Server akan berjalan di http://localhost:3001
 
-## Contoh panggilan API (PowerShell / Invoke-RestMethod)
-
-1) Ambil daftar event
-
-```powershell
-Invoke-RestMethod -Uri http://localhost:3001/api/events -Method GET | ConvertTo-Json -Depth 5
-```
-
-2) Ambil detail event + tiket
-
-```powershell
-Invoke-RestMethod -Uri http://localhost:3001/api/events/1 -Method GET | ConvertTo-Json -Depth 6
-```
-
-3) Cek status tiket (harga & viewers)
-
-```powershell
-Invoke-RestMethod -Uri http://localhost:3001/api/status/1/vip -Method GET | ConvertTo-Json
-```
-
-4) Simulasikan user masuk/keluar
-
-```powershell
-Invoke-RestMethod -Uri http://localhost:3001/api/masuk/1/vip -Method POST
-Invoke-RestMethod -Uri http://localhost:3001/api/keluar/1/vip -Method POST
-```
-
-5) Beli tiket
-
-```powershell
-Invoke-RestMethod -Uri http://localhost:3001/api/beli/1/vip -Method POST
-```
-
 ## Seeder (`backend/seed.js`) — apa yang dibuat
 - Menambahkan 4 event contoh (id 1..4) dengan metadata: title, description, location, date, category, image.
 - Untuk tiap event membuat variasi tiket (contoh: vip, regular, cat1, festival) dan key:
