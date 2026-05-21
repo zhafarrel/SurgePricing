@@ -45,7 +45,7 @@ async function seed() {
       location: 'Beach City International Stadium',
       date: 'Sat, Mar 18 • 8:00 PM',
       category: 'Concert',
-      image: 'https://images.unsplash.com/photo-1493225457224-eda0e6fd1463?auto=format&fit=crop&q=80&w=1000'
+      image: 'https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&q=80&w=1000'
     },
     {
       id: '4',

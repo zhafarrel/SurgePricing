@@ -90,10 +90,18 @@ export default function EventCheckout({ params }: { params: Promise<{ id: string
       }
     }, 1000);
 
+    const handleUnload = () => {
+      // Use sendBeacon for reliable delivery during page unload
+      navigator.sendBeacon(`${API_BASE}/keluar/${eventId}/${selectedTicket}`);
+    };
+
+    window.addEventListener("beforeunload", handleUnload);
+
     // Leave room on unmount or ticket change
     return () => {
       clearInterval(interval);
-      fetch(`${API_BASE}/keluar/${eventId}/${selectedTicket}`, { method: "POST", keepalive: true });
+      window.removeEventListener("beforeunload", handleUnload);
+      handleUnload();
     };
   }, [eventId, selectedTicket]);
 
@@ -142,20 +150,20 @@ export default function EventCheckout({ params }: { params: Promise<{ id: string
       <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
         {/* Left Column: Event Details */}
         <div className="md:col-span-7 space-y-6">
-          <Link href="/" className="text-synth-cyan flex items-center gap-2 hover:underline mb-8 font-medium w-fit hover:text-white transition-colors">
+          <Link href="/" className="text-synth-cyan flex items-center gap-2 hover:underline mb-8 font-medium w-fit hover:text-black transition-colors">
             ← Back to Events
           </Link>
-          <div className="rounded-2xl overflow-hidden h-64 relative mb-8 border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
-             <div className="absolute inset-0 bg-gradient-to-t from-[#040d1a] to-transparent z-10"></div>
+          <div className="rounded-2xl overflow-hidden h-64 relative mb-8 border border-black/10 ">
+             <div className="absolute inset-0 bg-gradient-to-t from-white to-transparent z-10"></div>
              <img src={eventData.image} alt={eventData.title} className="w-full h-full object-cover" />
              <div className="absolute bottom-4 left-4 z-20">
-               <span className="bg-synth-cyan/20 border border-synth-cyan text-synth-cyan text-xs font-bold px-3 py-1 rounded-full backdrop-blur-md shadow-[0_0_10px_rgba(0,210,255,0.2)]">
+               <span className="bg-synth-cyan/20 border border-synth-cyan text-synth-cyan text-xs font-bold px-3 py-1 rounded-full backdrop-blur-md ">
                  {eventData.category}
                </span>
              </div>
           </div>
 
-          <h2 className="text-5xl font-extrabold tracking-tight mb-2 gradient-text uppercase drop-shadow-[0_0_15px_rgba(0,210,255,0.3)]">
+          <h2 className="text-5xl font-extrabold tracking-tight mb-2 gradient-text uppercase ">
             {eventData.title}
           </h2>
           <div className="space-y-2 mb-4">
@@ -169,7 +177,7 @@ export default function EventCheckout({ params }: { params: Promise<{ id: string
           
           <div className="glass p-6 mt-8 rounded-xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-synth-cyan to-synth-blue"></div>
-            <h3 className="font-bold text-xl mb-4 border-b border-white/10 pb-4 text-synth-text flex items-center gap-2">
+            <h3 className="font-bold text-xl mb-4 border-b border-black/10 pb-4 text-synth-text flex items-center gap-2">
               Event Information
             </h3>
             <p className="text-synth-muted leading-relaxed">
@@ -180,15 +188,15 @@ export default function EventCheckout({ params }: { params: Promise<{ id: string
 
         {/* Right Column: Dynamic Pricing Engine */}
         <div className="md:col-span-5 relative">
-          <div className="glass rounded-2xl overflow-hidden sticky top-24 shadow-[0_0_40px_rgba(0,0,0,0.5)] border border-white/10">
+          <div className="glass rounded-none overflow-hidden sticky top-24 border border-black/10">
             {/* Header */}
-            <div className="bg-gradient-to-r from-synth-blue to-synth-teal px-6 py-4 flex items-center gap-3 border-b border-white/10">
-              <Zap className="text-synth-cyan" size={24} />
+            <div className="bg-gradient-to-r from-synth-blue to-synth-teal px-6 py-4 flex items-center gap-3 border-b border-black/10">
+              <Zap className="text-white" size={24} />
               <h3 className="font-bold text-xl text-white tracking-tight">Surge Engine</h3>
             </div>
 
             {/* Ticket Selector */}
-            <div className="p-6 border-b border-white/10 bg-black/20">
+            <div className="p-6 border-b border-black/10 bg-[#F6F6F6]">
               <label className="block text-sm font-medium text-synth-muted mb-3">Select Ticket Tier</label>
               <div className="grid grid-cols-2 gap-3">
                 {eventData.tickets.map((t) => (
@@ -197,8 +205,8 @@ export default function EventCheckout({ params }: { params: Promise<{ id: string
                     onClick={() => setSelectedTicket(t.id)}
                     className={`py-2 px-3 rounded-lg border text-sm font-bold transition-all ${
                       selectedTicket === t.id 
-                        ? "bg-synth-cyan/20 border-synth-cyan text-synth-cyan shadow-[0_0_10px_rgba(0,210,255,0.2)]" 
-                        : "bg-black/40 border-white/10 text-synth-muted hover:border-synth-cyan/50 hover:text-white"
+                        ? "bg-synth-cyan/20 border-synth-cyan text-synth-cyan " 
+                        : "bg-[#E2E2E2] border-black/10 text-synth-muted hover:border-synth-cyan/50 hover:text-black"
                     }`}
                   >
                     {t.name}
@@ -209,12 +217,12 @@ export default function EventCheckout({ params }: { params: Promise<{ id: string
 
             {/* Status Banner */}
             {isSurge && !isSoldOut && (
-              <div className="bg-synth-cyan/10 px-6 py-4 flex gap-3 items-start border-b border-synth-cyan neon-border-cyan animate-pulse relative overflow-hidden">
+              <div className="bg-synth-cyan/10 px-6 py-4 flex gap-3 items-start border-b border-synth-cyan neon-border-cyan  relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-synth-cyan/5 to-transparent"></div>
-                <Zap size={20} className="text-synth-cyan shrink-0 mt-0.5 relative z-10 drop-shadow-[0_0_8px_rgba(0,210,255,0.8)]" />
+                <Zap size={20} className="text-synth-cyan shrink-0 mt-0.5 relative z-10 " />
                 <div className="relative z-10">
                   <h4 className="font-bold text-synth-cyan text-sm uppercase tracking-widest">Fares are higher due to demand</h4>
-                  <p className="text-sm text-white/90 mt-1"><span className="font-bold neon-text-cyan">{status.status}</span> • {status.viewers} people are viewing this ticket right now.</p>
+                  <p className="text-sm text-black/90 mt-1"><span className="font-bold neon-text-cyan">{status.status}</span> • {status.viewers} people are viewing this ticket right now.</p>
                 </div>
               </div>
             )}
@@ -227,7 +235,7 @@ export default function EventCheckout({ params }: { params: Promise<{ id: string
             )}
 
             <div className="p-6 space-y-6">
-              <div className="flex justify-between items-center bg-black/40 p-4 rounded-xl border border-white/5">
+              <div className="flex justify-between items-center bg-[#E2E2E2] p-4 rounded-xl border border-black/5">
                 <span className="text-synth-muted font-medium flex items-center gap-2">
                   <Ticket size={16} /> Stock Available
                 </span>
@@ -236,20 +244,20 @@ export default function EventCheckout({ params }: { params: Promise<{ id: string
                 </span>
               </div>
 
-              <div className="flex justify-between items-center bg-black/40 p-4 rounded-xl border border-white/5">
+              <div className="flex justify-between items-center bg-[#E2E2E2] p-4 rounded-xl border border-black/5">
                 <span className="text-synth-muted font-medium flex items-center gap-2">
                   <Users size={16} /> Active Viewers
                 </span>
                 <span className="font-bold text-xl text-synth-text flex items-center gap-2">
                   {status.viewers} 
                   <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-synth-cyan opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-synth-cyan shadow-[0_0_8px_var(--color-synth-cyan)]"></span>
+                    <span className=" absolute inline-flex h-full w-full rounded-full bg-synth-cyan opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-synth-cyan "></span>
                   </span>
                 </span>
               </div>
 
-              <div className="pt-6 border-t border-white/10">
+              <div className="pt-6 border-t border-black/10">
                 <p className="text-sm text-synth-muted mb-2 font-medium uppercase tracking-widest">Current Price</p>
                 <div className="flex items-end gap-3 mb-6">
                   <p className={`text-4xl font-extrabold ${isSurge ? 'neon-text-cyan' : 'text-synth-text'} transition-colors duration-300`}>
@@ -262,7 +270,7 @@ export default function EventCheckout({ params }: { params: Promise<{ id: string
               <button
                 onClick={handleBuy}
                 disabled={isSoldOut || loading}
-                className="w-full bg-gradient-to-r from-synth-cyan to-synth-blue text-white py-4 font-bold text-lg rounded-lg hover:shadow-[0_0_20px_rgba(0,210,255,0.6)] transition-all disabled:opacity-50 disabled:grayscale disabled:shadow-none flex justify-center items-center gap-2 group border border-white/20"
+                className="w-full bg-black text-white py-4 font-bold text-lg rounded-lg hover: transition-all disabled:opacity-50 disabled:grayscale disabled:shadow-none flex justify-center items-center gap-2 group border border-black/20"
               >
                 {loading ? "Processing..." : isSoldOut ? "Sold Out" : "Order Ticket"}
                 {!loading && !isSoldOut && <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />}
@@ -275,10 +283,10 @@ export default function EventCheckout({ params }: { params: Promise<{ id: string
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5">
-          <div className={`glass rounded-full flex items-center gap-3 px-6 py-4 shadow-[0_0_30px_rgba(0,0,0,0.8)] border ${
+          <div className={`glass rounded-full flex items-center gap-3 px-6 py-4  border ${
             toast.type === "success" 
-              ? "border-green-500 text-green-400 drop-shadow-[0_0_10px_rgba(34,197,94,0.5)]" 
-              : "border-synth-cyan/50 text-synth-cyan drop-shadow-[0_0_10px_rgba(0,210,255,0.5)]"
+              ? "border-green-500 text-green-400 " 
+              : "border-synth-cyan/50 text-synth-cyan "
           }`}>
             {toast.type === "success" ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
             <span className="font-medium">{toast.message}</span>

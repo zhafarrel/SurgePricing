@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --color-synth-bg: #040d1a;
-  --color-synth-card: rgba(10, 25, 47, 0.7);
-  --color-synth-cyan: #00d2ff;
-  --color-synth-blue: #0a192f;
-  --color-synth-teal: #112240;
-  --color-synth-text: #e4e4e7;
-  --color-synth-muted: #8892b0;
+  --color-synth-bg: #F6F6F6;
+  --color-synth-card: #FFFFFF;
+  --color-synth-cyan: #000000;
+  --color-synth-blue: #1A1A1A;
+  --color-synth-teal: #E2E2E2;
+  --color-synth-text: #000000;
+  --color-synth-muted: #545454;
 }
 
 :root {
@@ -19,40 +19,31 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at top, #0a192f 0%, #040d1a 50%);
-  background-attachment: fixed;
+  background-color: var(--color-synth-bg);
 }
 
 @layer utilities {
   .glass {
     background-color: var(--color-synth-card);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(0, 210, 255, 0.1);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    border: 1px solid #E2E2E2;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   }
   
   .glass-header {
-    background-color: rgba(4, 13, 26, 0.8);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-bottom: 1px solid rgba(0, 210, 255, 0.1);
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #E2E2E2;
   }
 
   .neon-text-cyan {
-    text-shadow: 0 0 10px var(--color-synth-cyan), 0 0 20px var(--color-synth-cyan);
-    color: var(--color-synth-cyan);
+    color: #000000;
+    font-weight: 800;
   }
 
   .neon-border-cyan {
-    box-shadow: 0 0 15px rgba(0, 210, 255, 0.3), inset 0 0 15px rgba(0, 210, 255, 0.3);
-    border-color: var(--color-synth-cyan);
+    border-color: #000000;
   }
 
   .gradient-text {
-    background-image: linear-gradient(to right, #00d2ff, #3a7bd5);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: #000000;
   }
 }

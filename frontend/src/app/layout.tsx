@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
-import AuthStatus from "@/components/AuthStatus";
-import AuthGuard from "@/components/AuthGuard";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,31 +29,28 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col text-synth-text">
-        <AuthGuard>
           {/* Global Navigation Bar */}
           <header className="glass-header sticky top-0 z-50">
             <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded bg-gradient-to-br from-synth-cyan to-synth-blue text-white flex items-center justify-center font-bold text-xl shadow-[0_0_10px_var(--color-synth-cyan)]">
+                <div className="w-8 h-8 rounded bg-black text-white flex items-center justify-center font-bold text-xl ">
                   S
                 </div>
                 <h1 className="font-bold text-xl tracking-tight gradient-text">SurgeTicket</h1>
               </div>
               
               <nav className="flex items-center gap-6 font-medium text-sm">
-                <Link href="/" className="hover:neon-text-cyan text-synth-muted transition-all">
-                  Ticket Checkout
-                </Link>
-                <Link href="/admin" className="hover:neon-text-cyan text-synth-muted transition-all">
-                  Live Stats
-                </Link>
-                <AuthStatus />
-              </nav>
+              <Link href="/" className="hover:text-black text-synth-muted transition-colors">
+                Browse Events
+              </Link>
+              <Link href="/admin" className="hover:text-black text-synth-muted transition-colors">
+                Live Stats
+              </Link>
+            </nav>
             </div>
           </header>
 
           {children}
-        </AuthGuard>
       </body>
     </html>
   );

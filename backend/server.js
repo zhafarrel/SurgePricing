@@ -166,6 +166,18 @@ app.post('/api/keluar/:eventId/:ticketId', async (req, res) => {
     }
 });
 
+// RESET VIEWERS (Admin Utility)
+app.post('/api/reset-viewers/:eventId/:ticketId', async (req, res) => {
+    try {
+        const { eventId, ticketId } = req.params;
+        const key = `ticket:${eventId}:${ticketId}:viewers`;
+        await redisClient.set(key, 0);
+        res.json({ success: true, message: "Viewers reset to 0" });
+    } catch (error) {
+        res.status(500).json({ success: false });
+    }
+});
+
 // BELI TIKET
 app.post('/api/beli/:eventId/:ticketId', async (req, res) => {
     try {
