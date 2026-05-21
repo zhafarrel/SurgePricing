@@ -9,7 +9,7 @@
 	- `backend/package.json` — dependensi (express, redis, bcryptjs, jsonwebtoken, cors)
 
 ## Flowchart
-![flowchart]("SAVE_20260521_141929.jpg")
+![flowchart](SAVE_20260521_141929.jpg)
 
 
 ## Kontrak singkat (inputs / outputs)
