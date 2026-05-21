@@ -121,14 +121,18 @@ app.get('/api/status/:eventId/:ticketId', async (req, res) => {
 
 
         // Live branchmarking sql
-        const startSQL = process.hrtime();
-        await pool.query(
-            'SELECT stok, viewers, revenue FROM tiket_sql WHERE event_id = $1 AND ticket_id = $2',
-            [eventId, ticketId]
-        );
-
-        const endSQL = process.hrtime(startSQL);
-        const latencySQL = (endSQL[0] * 1000 + endSQL[1] / 1000000).toFixed(3);
+        let latencySQL = "Error";
+        try {
+            const startSQL = process.hrtime();
+            await pool.query(
+                'SELECT stok, viewers, revenue FROM tiket_sql WHERE event_id = $1 AND ticket_id = $2',
+                [eventId, ticketId]
+            );
+            const endSQL = process.hrtime(startSQL);
+            latencySQL = (endSQL[0] * 1000 + endSQL[1] / 1000000).toFixed(3);
+        } catch (err) {
+            console.error("SQL Benchmarking Error:", err.message);
+        }
 
         // Logika Surge Pricing
         let harga_target = 0;
