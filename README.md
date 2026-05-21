@@ -9,7 +9,7 @@
 	- `backend/package.json` — dependensi (express, redis, bcryptjs, jsonwebtoken, cors)
 
 ## Flowchart
-![image](https://hackmd.io/_uploads/SyfhNV3Jze.png)
+![flowchart]("SAVE_20260521_141929.jpg")
 
 
 ## Kontrak singkat (inputs / outputs)
