@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import AuthStatus from "@/components/AuthStatus";
+import AuthGuard from "@/components/AuthGuard";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,29 +30,32 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#F6F6F6] text-black">
-        {/* Global Navigation Bar */}
-        <header className="bg-white border-b border-[#E2E2E2] sticky top-0 z-50">
-          <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-black text-white flex items-center justify-center font-bold text-xl">
-                S
+      <body className="min-h-full flex flex-col text-synth-text">
+        <AuthGuard>
+          {/* Global Navigation Bar */}
+          <header className="glass-header sticky top-0 z-50">
+            <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded bg-gradient-to-br from-synth-cyan to-synth-blue text-white flex items-center justify-center font-bold text-xl shadow-[0_0_10px_var(--color-synth-cyan)]">
+                  S
+                </div>
+                <h1 className="font-bold text-xl tracking-tight gradient-text">SurgeTicket</h1>
               </div>
-              <h1 className="font-bold text-xl tracking-tight">SurgeTicket</h1>
+              
+              <nav className="flex items-center gap-6 font-medium text-sm">
+                <Link href="/" className="hover:neon-text-cyan text-synth-muted transition-all">
+                  Ticket Checkout
+                </Link>
+                <Link href="/admin" className="hover:neon-text-cyan text-synth-muted transition-all">
+                  Live Stats
+                </Link>
+                <AuthStatus />
+              </nav>
             </div>
-            
-            <nav className="flex gap-6 font-medium text-sm">
-              <Link href="/" className="hover:text-black text-[#545454] transition-colors">
-                Ticket Checkout
-              </Link>
-              <Link href="/admin" className="hover:text-black text-[#545454] transition-colors">
-                Live Stats
-              </Link>
-            </nav>
-          </div>
-        </header>
+          </header>
 
-        {children}
+          {children}
+        </AuthGuard>
       </body>
     </html>
   );

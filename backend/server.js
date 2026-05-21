@@ -1,9 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('redis');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = 'surgeticket-secret-dev-key';
 
 const app = express();
-const port = 3000;
+const port = 3001;
 
 // Middleware
 app.use(cors());
@@ -16,35 +20,101 @@ const redisClient = createClient({
 
 redisClient.on('error', (err) => console.log('Redis Client Error', err));
 
-// Konstanta Bisnis
-const HARGA_DASAR = 100000;
-const STOK_AWAL = 3; // Ubah ke 3 untuk memudahkan simulasi testing tab
-const TARGET_REVENUE = HARGA_DASAR * STOK_AWAL; // Target revenue rasional untuk stok yang ada
-
-// GET STATUS 
-app.get('/api/status', async (req, res) => {
+// GET ALL EVENTS
+app.get('/api/events', async (req, res) => {
     try {
-        const viewers = parseInt(await redisClient.get('ticket:vip:active_viewers')) || 0;
-        const stok = parseInt(await redisClient.get('ticket:vip:stock_left')) || 0;
-        const revenue = parseFloat(await redisClient.get('ticket:vip:current_revenue')) || 0;
+        const eventIds = await redisClient.sMembers('events:all');
+        const events = [];
+        
+        for (const id of eventIds) {
+            const eventData = await redisClient.hGetAll(`event:${id}`);
+            events.push(eventData);
+        }
+        
+        res.json({ success: true, data: events });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, error: 'Gagal mengambil data event' });
+    }
+});
 
-        // Harga berdasarkan Target Revenue
+// GET EVENT DETAILS & TICKETS
+app.get('/api/events/:id', async (req, res) => {
+    try {
+        const eventId = req.params.id;
+        const eventData = await redisClient.hGetAll(`event:${eventId}`);
+        
+        if (!eventData || !eventData.id) {
+            return res.status(404).json({ success: false, message: 'Event not found' });
+        }
+
+        // To find tickets for this event, we scan keys ticket:eventId:* (excluding stock/viewers/revenue)
+        // Since redis keys are string based, we will fetch VIP and Regular as an example, 
+        // or we can use scan. Better yet, since we don't have a set of ticket IDs per event, 
+        // let's fetch all keys matching `ticket:${eventId}:*` and filter.
+        const keys = await redisClient.keys(`ticket:${eventId}:*`);
+        const ticketIds = new Set();
+        keys.forEach(key => {
+            const parts = key.split(':');
+            if (parts.length === 3) {
+                ticketIds.add(parts[2]);
+            }
+        });
+
+        const tickets = [];
+        for (const tid of ticketIds) {
+            const tData = await redisClient.hGetAll(`ticket:${eventId}:${tid}`);
+            const currentStock = await redisClient.get(`ticket:${eventId}:${tid}:stock`);
+            if (tData && tData.id) {
+                tickets.push({
+                    ...tData,
+                    base_price: parseInt(tData.base_price),
+                    initial_stock: parseInt(tData.initial_stock),
+                    current_stock: currentStock !== null ? parseInt(currentStock) : parseInt(tData.initial_stock)
+                });
+            }
+        }
+
+        res.json({ success: true, data: { ...eventData, tickets } });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, error: 'Gagal mengambil detail event' });
+    }
+});
+
+// GET TICKET STATUS (Surge Pricing Logic)
+app.get('/api/status/:eventId/:ticketId', async (req, res) => {
+    try {
+        const { eventId, ticketId } = req.params;
+        const ticketHash = await redisClient.hGetAll(`ticket:${eventId}:${ticketId}`);
+        
+        if (!ticketHash || !ticketHash.base_price) {
+            return res.status(404).json({ error: 'Tiket tidak ditemukan' });
+        }
+
+        const HARGA_DASAR = parseInt(ticketHash.base_price);
+        const STOK_AWAL = parseInt(ticketHash.initial_stock);
+        const TARGET_REVENUE = HARGA_DASAR * STOK_AWAL;
+
+        const viewers = parseInt(await redisClient.get(`ticket:${eventId}:${ticketId}:viewers`)) || 0;
+        const stok = parseInt(await redisClient.get(`ticket:${eventId}:${ticketId}:stock`)) || 0;
+        const revenue = parseFloat(await redisClient.get(`ticket:${eventId}:${ticketId}:revenue`)) || 0;
+
         let harga_target = 0;
         if (stok > 0) {
             harga_target = (TARGET_REVENUE - revenue) / stok;
         }
 
-        // Harga berdasarkan Demand
         let harga_demand = HARGA_DASAR;
         let status = "Normal";
 
         if (stok > 0) {
-            const rasio = viewers / stok;
-            // Diubah threshold-nya agar lebih gampang dites (tidak perlu buka terlalu banyak tab)
-            if (rasio > 4) {
+            // DEMO MODE: Menggunakan angka absolute (bukan rasio) 
+            // agar mudah didemonstrasikan di kelas tanpa perlu ratusan tab
+            if (viewers >= 4) {
                 harga_demand = HARGA_DASAR * 2.5;
                 status = "CRITICAL SURGE";
-            } else if (rasio > 2) {
+            } else if (viewers >= 2) {
                 harga_demand = HARGA_DASAR * 1.5;
                 status = "SURGE PRICING";
             }
@@ -52,13 +122,11 @@ app.get('/api/status', async (req, res) => {
             status = "SOLD OUT";
         }
 
-        // Tentukan Harga Final
         const harga_final = Math.max(harga_target, harga_demand, HARGA_DASAR);
+        
+        // Simpan harga final
+        await redisClient.set(`ticket:${eventId}:${ticketId}:price`, harga_final);
 
-        // Simpan harga final ke Redis 
-        await redisClient.set('ticket:vip:current_price', harga_final);
-
-        // Kirim response ke Frontend
         res.json({
             viewers: viewers,
             stok: stok,
@@ -66,31 +134,31 @@ app.get('/api/status', async (req, res) => {
             revenue: Math.round(revenue),
             status: status
         });
-
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Gagal mengambil data' });
+        res.status(500).json({ error: 'Gagal mengambil status' });
     }
 });
 
-// MASUK 
-app.post('/api/masuk', async (req, res) => {
+// MASUK (Increment Viewers)
+app.post('/api/masuk/:eventId/:ticketId', async (req, res) => {
     try {
-        // Atomic Increment
-        const currentViewers = await redisClient.incr('ticket:vip:active_viewers');
+        const { eventId, ticketId } = req.params;
+        const currentViewers = await redisClient.incr(`ticket:${eventId}:${ticketId}:viewers`);
         res.json({ success: true, viewers: currentViewers });
     } catch (error) {
         res.status(500).json({ success: false });
     }
 });
 
-// KELUAR 
-app.post('/api/keluar', async (req, res) => {
+// KELUAR (Decrement Viewers)
+app.post('/api/keluar/:eventId/:ticketId', async (req, res) => {
     try {
-        // Cek dulu jangan sampai minus
-        const current = parseInt(await redisClient.get('ticket:vip:active_viewers')) || 0;
+        const { eventId, ticketId } = req.params;
+        const key = `ticket:${eventId}:${ticketId}:viewers`;
+        const current = parseInt(await redisClient.get(key)) || 0;
         if (current > 0) {
-            await redisClient.decr('ticket:vip:active_viewers');
+            await redisClient.decr(key);
         }
         res.json({ success: true });
     } catch (error) {
@@ -98,40 +166,92 @@ app.post('/api/keluar', async (req, res) => {
     }
 });
 
-// BELI TIKET 
-app.post('/api/beli', async (req, res) => {
+// BELI TIKET
+app.post('/api/beli/:eventId/:ticketId', async (req, res) => {
     try {
-        const stok = parseInt(await redisClient.get('ticket:vip:stock_left')) || 0;
+        const { eventId, ticketId } = req.params;
+        const stokKey = `ticket:${eventId}:${ticketId}:stock`;
+        const stok = parseInt(await redisClient.get(stokKey)) || 0;
 
         if (stok > 0) {
-            // Atomic Decrement Stok
-            await redisClient.decr('ticket:vip:stock_left');
-
-            // Ambil harga detik ini
-            const harga = parseFloat(await redisClient.get('ticket:vip:current_price')) || HARGA_DASAR;
-
-            // Tambah uang ke brankas
-            await redisClient.incrByFloat('ticket:vip:current_revenue', harga);
-
+            await redisClient.decr(stokKey);
+            const harga = parseFloat(await redisClient.get(`ticket:${eventId}:${ticketId}:price`)) || 0;
+            if (harga > 0) {
+                await redisClient.incrByFloat(`ticket:${eventId}:${ticketId}:revenue`, harga);
+            }
             res.json({ success: true, message: "Tiket berhasil didapat!" });
         } else {
             res.json({ success: false, message: "Tiket Habis!" });
         }
     } catch (error) {
+        console.error(error);
         res.status(500).json({ success: false });
+    }
+});
+
+// REGISTER
+app.post('/api/register', async (req, res) => {
+    try {
+        const { username, email, password } = req.body;
+        if (!username || !email || !password) {
+            return res.status(400).json({ success: false, message: 'Username, email, dan password wajib diisi' });
+        }
+
+        const userKey = `user:${username}`;
+        const existingUser = await redisClient.hGetAll(userKey);
+        
+        if (existingUser && existingUser.username) {
+            return res.status(400).json({ success: false, message: 'Username sudah terdaftar' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        await redisClient.hSet(userKey, {
+            username: username,
+            email: email,
+            password: hashedPassword
+        });
+
+        res.json({ success: true, message: 'Registrasi berhasil' });
+    } catch (error) {
+        console.error('Register error:', error);
+        res.status(500).json({ success: false, message: 'Terjadi kesalahan pada server' });
+    }
+});
+
+// LOGIN
+app.post('/api/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ success: false, message: 'Username dan password wajib diisi' });
+        }
+
+        const userKey = `user:${username}`;
+        const user = await redisClient.hGetAll(userKey);
+
+        if (!user || !user.username) {
+            return res.status(401).json({ success: false, message: 'Username atau password salah' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Username atau password salah' });
+        }
+
+        const token = jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '1h' });
+
+        res.json({ success: true, message: 'Login berhasil', token, username: user.username });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ success: false, message: 'Terjadi kesalahan pada server' });
     }
 });
 
 // Inisialisasi Data & Jalankan Server
 async function startServer() {
     await redisClient.connect();
-
-    // Reset data setiap kali server menyala
-    await redisClient.set('ticket:vip:active_viewers', 0);
-    await redisClient.set('ticket:vip:stock_left', STOK_AWAL);
-    await redisClient.set('ticket:vip:current_revenue', 0);
-    await redisClient.set('ticket:vip:current_price', HARGA_DASAR);
-
+    // We don't reset data here anymore because the seeder handles it.
     app.listen(port, () => {
         console.log(`🚀 Backend API berjalan di http://localhost:${port}`);
     });
