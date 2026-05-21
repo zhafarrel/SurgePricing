@@ -26,6 +26,10 @@ interface StatusData {
   harga_sekarang: number;
   revenue: number;
   status: string;
+  live_latency?: {
+    redis_ms: string;
+    sql_ms: string;
+  };
 }
 
 interface ChartData {
@@ -36,18 +40,22 @@ interface ChartData {
 
 export default function AdminStats() {
   const [events, setEvents] = useState<EventData[]>([]);
-  const [tickets, setTickets] = useState<{id: string, name: string}[]>([]);
+  const [tickets, setTickets] = useState<{ id: string, name: string }[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [selectedTicketId, setSelectedTicketId] = useState<string>("");
-  
+
   const [data, setData] = useState<StatusData>({
     viewers: 0,
     stok: 0,
     harga_sekarang: 0,
     revenue: 0,
     status: "Normal",
+    live_latency: {
+      redis_ms: "0.000",
+      sql_ms: "0.000"
+    }
   });
-  
+
   const [history, setHistory] = useState<ChartData[]>([]);
 
   const formatCurrency = (num: number) => {
@@ -94,7 +102,7 @@ export default function AdminStats() {
 
   useEffect(() => {
     if (!selectedEventId || !selectedTicketId) return;
-    
+
     // Reset history when changing tracking target
     setHistory([]);
 
@@ -104,10 +112,10 @@ export default function AdminStats() {
         if (res.ok) {
           const result = await res.json();
           setData(result);
-          
+
           const now = new Date();
           const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-          
+
           setHistory((prev) => {
             const newHistory = [...prev, {
               time: timeStr,
@@ -130,7 +138,7 @@ export default function AdminStats() {
     if (confirm("Reset active viewers to 0?")) {
       try {
         await fetch(`${API_BASE}/reset-viewers/${selectedEventId}/${selectedTicketId}`, { method: "POST" });
-        setData(prev => ({...prev, viewers: 0}));
+        setData(prev => ({ ...prev, viewers: 0 }));
       } catch (err) {
         console.error("Failed to reset viewers");
       }
@@ -146,12 +154,12 @@ export default function AdminStats() {
           <h1 className="text-3xl font-bold tracking-tight mb-2 text-black">Live Statistics</h1>
           <p className="text-synth-muted">Real-time dynamic pricing engine monitor</p>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row gap-3 items-center">
           {events.length > 0 && (
             <>
-              <select 
-                value={selectedEventId} 
+              <select
+                value={selectedEventId}
                 onChange={handleEventChange}
                 className="bg-white border border-black/20 text-black px-3 py-2 rounded shadow-sm focus:outline-none focus:border-black"
               >
@@ -159,9 +167,9 @@ export default function AdminStats() {
                   <option key={ev.id} value={ev.id}>{ev.title}</option>
                 ))}
               </select>
-              
-              <select 
-                value={selectedTicketId} 
+
+              <select
+                value={selectedTicketId}
                 onChange={(e) => setSelectedTicketId(e.target.value)}
                 className="bg-white border border-black/20 text-black px-3 py-2 rounded shadow-sm focus:outline-none focus:border-black"
               >
@@ -172,7 +180,7 @@ export default function AdminStats() {
             </>
           )}
 
-          <button 
+          <button
             onClick={handleResetViewers}
             className="px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded text-sm font-bold shadow-sm hover:bg-red-100 transition-colors"
             title="Darurat: Klik ini jika angka viewers nyangkut karena bug browser refresh"
@@ -180,11 +188,10 @@ export default function AdminStats() {
             Reset Viewers
           </button>
 
-          <div className={`px-4 py-2 flex items-center justify-center gap-2 font-bold uppercase tracking-wider text-sm border rounded ${
-            isSurge ? "bg-black text-white border-black" : 
-            data.stok <= 0 ? "bg-white border-black/10 text-synth-muted" : 
-            "bg-gray-100 border-black/20 text-black"
-          }`}>
+          <div className={`px-4 py-2 flex items-center justify-center gap-2 font-bold uppercase tracking-wider text-sm border rounded ${isSurge ? "bg-black text-white border-black" :
+            data.stok <= 0 ? "bg-white border-black/10 text-synth-muted" :
+              "bg-gray-100 border-black/20 text-black"
+            }`}>
             <Activity size={18} />
             {data.status}
           </div>
@@ -200,7 +207,7 @@ export default function AdminStats() {
           </div>
           <p className="text-3xl font-bold text-black">{formatCurrency(data.revenue)}</p>
         </div>
-        
+
         <div className="glass rounded-xl p-6 flex flex-col justify-between hover:border-black/30 transition-all">
           <div className="flex items-center gap-2 text-synth-muted mb-4">
             <Ticket size={18} />
@@ -228,6 +235,31 @@ export default function AdminStats() {
         </div>
       </div>
 
+      {/*Live Branch Section (REDIS VS SQL) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        {/* Kotak Redis */}
+        <div className="glass rounded-xl p-6 border-l-4 border-l-green-500 bg-green-50/20 shadow-sm">
+          <div className="flex justify-between items-start mb-2">
+            <span className="font-bold text-sm uppercase text-green-600 tracking-wider">Redis Latency (In-Memory)</span>
+            <span className="text-xs font-mono bg-green-100 text-green-800 px-2 py-1 rounded">No Locking</span>
+          </div>
+          <p className="text-4xl font-bold text-black mt-2">
+            {data.live_latency?.redis_ms || "0.000"} <span className="text-xl font-medium text-gray-500">ms</span>
+          </p>
+        </div>
+
+        {/* Kotak PostgreSQL */}
+        <div className="glass rounded-xl p-6 border-l-4 border-l-red-500 bg-red-50/20 shadow-sm">
+          <div className="flex justify-between items-start mb-2">
+            <span className="font-bold text-sm uppercase text-red-600 tracking-wider">PostgreSQL Latency (Disk I/O)</span>
+            <span className="text-xs font-mono bg-red-100 text-red-800 px-2 py-1 rounded">Row Locking</span>
+          </div>
+          <p className="text-4xl font-bold text-black mt-2">
+            {data.live_latency?.sql_ms || "0.000"} <span className="text-xl font-medium text-gray-500">ms</span>
+          </p>
+        </div>
+      </div>
+
       {/* Chart Section */}
       <div className="glass rounded-xl p-6 border-black/10">
         <h3 className="font-bold text-lg mb-6 border-b border-black/10 pb-4 text-black">Viewers vs Price Volatility (Last 30s)</h3>
@@ -243,29 +275,29 @@ export default function AdminStats() {
               }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e2e2" vertical={false} />
-              <XAxis 
-                dataKey="time" 
+              <XAxis
+                dataKey="time"
                 stroke="#545454"
                 fontSize={12}
                 tickMargin={10}
               />
-              <YAxis 
-                yAxisId="left" 
-                stroke="#000000" 
+              <YAxis
+                yAxisId="left"
+                stroke="#000000"
                 fontSize={12}
                 allowDecimals={false}
               />
-              <YAxis 
-                yAxisId="right" 
-                orientation="right" 
-                stroke="#545454" 
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                stroke="#545454"
                 fontSize={12}
-                tickFormatter={(val) => `Rp ${val/1000}k`}
+                tickFormatter={(val) => `Rp ${val / 1000}k`}
               />
-              <Tooltip 
+              <Tooltip
                 contentStyle={{ borderRadius: '8px', border: '1px solid #e2e2e2', backgroundColor: '#ffffff', color: '#000', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
               />
-              <Legend wrapperStyle={{ paddingTop: '20px', color: '#545454' }}/>
+              <Legend wrapperStyle={{ paddingTop: '20px', color: '#545454' }} />
               <Line
                 yAxisId="left"
                 type="stepAfter"
@@ -293,5 +325,6 @@ export default function AdminStats() {
         </div>
       </div>
     </div>
+
   );
 }
