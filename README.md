@@ -8,6 +8,10 @@
 	- `backend/seed.js` — seeder untuk membuat data event & tiket contoh
 	- `backend/package.json` — dependensi (express, redis, bcryptjs, jsonwebtoken, cors)
 
+## Flowchart
+![image](https://hackmd.io/_uploads/SyfhNV3Jze.png)
+
+
 ## Kontrak singkat (inputs / outputs)
 - Input: request HTTP ke endpoint REST (JSON untuk registrasi/login; route params untuk event/ticket)
 - Output: JSON berisi { success?, data?, message?, error? } atau objek status tiket (viewers, stok, harga, revenue, status)
@@ -119,8 +123,9 @@ docker run -p 6379:6379 --name surge-redis -d redis:7
 ```powershell
 cd .\backend
 npm install
-# Seed data contoh ke Redis
+# Seed data contoh ke Redis dan SQL
 node seed.js
+node seed-sql.js
 # Jalankan server API
 node server.js
 ```
@@ -193,11 +198,3 @@ Beberapa keputusan desain dan trade-offs yang dicatat dalam presentasi:
 ## Troubleshooting cepat
 - Jika `server.js` gagal connect ke Redis: periksa apakah Redis berjalan di `localhost:6379` atau sesuaikan URL di `server.js` dan `seed.js`.
 - Jika stok tidak berkurang saat `POST /api/beli/...`: pastikan `ticket:<...>:stock` sudah ada dan bernilai > 0 sebelum membeli (jalankan `node seed.js` jika perlu).
-
-## Next steps yang direkomendasikan
-- Tambahkan integrasi test/unit untuk API (supertest + jest).
-- Tambahkan middleware otorisasi pada endpoint sensitif (beli, reset-viewers).
-- Implementasi smoothing untuk harga (moving average) dan guardrails anti-bot.
-- Sinkronisasi periodik revenue/transactions ke RDBMS (Postgres) sebagai source-of-truth finansial.
-
----
