@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('redis');
+const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -20,17 +21,25 @@ const redisClient = createClient({
 
 redisClient.on('error', (err) => console.log('Redis Client Error', err));
 
+const pool = new Pool({
+    user: 'postgres',
+    host: 'localhost',
+    database: 'surgeticket_db',
+    password: 'postgres',
+    port: 5432,
+});
+
 // GET ALL EVENTS
 app.get('/api/events', async (req, res) => {
     try {
         const eventIds = await redisClient.sMembers('events:all');
         const events = [];
-        
+
         for (const id of eventIds) {
             const eventData = await redisClient.hGetAll(`event:${id}`);
             events.push(eventData);
         }
-        
+
         res.json({ success: true, data: events });
     } catch (error) {
         console.error(error);
@@ -43,15 +52,11 @@ app.get('/api/events/:id', async (req, res) => {
     try {
         const eventId = req.params.id;
         const eventData = await redisClient.hGetAll(`event:${eventId}`);
-        
+
         if (!eventData || !eventData.id) {
             return res.status(404).json({ success: false, message: 'Event not found' });
         }
 
-        // To find tickets for this event, we scan keys ticket:eventId:* (excluding stock/viewers/revenue)
-        // Since redis keys are string based, we will fetch VIP and Regular as an example, 
-        // or we can use scan. Better yet, since we don't have a set of ticket IDs per event, 
-        // let's fetch all keys matching `ticket:${eventId}:*` and filter.
         const keys = await redisClient.keys(`ticket:${eventId}:*`);
         const ticketIds = new Set();
         keys.forEach(key => {
@@ -82,12 +87,22 @@ app.get('/api/events/:id', async (req, res) => {
     }
 });
 
-// GET TICKET STATUS (Surge Pricing Logic)
+// GET TICKET STATUS (Surge Pricing Logic + Live Benchmarking)
 app.get('/api/status/:eventId/:ticketId', async (req, res) => {
     try {
         const { eventId, ticketId } = req.params;
-        const ticketHash = await redisClient.hGetAll(`ticket:${eventId}:${ticketId}`);
-        
+
+        // Live branchmarking Redis
+        const startRedis = process.hrtime();
+
+        // MENGIRIM 4 REQUEST KE REDIS SECARA BERSAMAAN DALAM 1 PERJALANAN
+        const [ticketHash, viewersRaw, stokRaw, revenueRaw] = await Promise.all([
+            redisClient.hGetAll(`ticket:${eventId}:${ticketId}`),
+            redisClient.get(`ticket:${eventId}:${ticketId}:viewers`),
+            redisClient.get(`ticket:${eventId}:${ticketId}:stock`),
+            redisClient.get(`ticket:${eventId}:${ticketId}:revenue`)
+        ]);
+
         if (!ticketHash || !ticketHash.base_price) {
             return res.status(404).json({ error: 'Tiket tidak ditemukan' });
         }
@@ -96,10 +111,26 @@ app.get('/api/status/:eventId/:ticketId', async (req, res) => {
         const STOK_AWAL = parseInt(ticketHash.initial_stock);
         const TARGET_REVENUE = HARGA_DASAR * STOK_AWAL;
 
-        const viewers = parseInt(await redisClient.get(`ticket:${eventId}:${ticketId}:viewers`)) || 0;
-        const stok = parseInt(await redisClient.get(`ticket:${eventId}:${ticketId}:stock`)) || 0;
-        const revenue = parseFloat(await redisClient.get(`ticket:${eventId}:${ticketId}:revenue`)) || 0;
+        // Parse data yang didapat dari Promise.all
+        const viewers = parseInt(viewersRaw) || 0;
+        const stok = parseInt(stokRaw) || 0;
+        const revenue = parseFloat(revenueRaw) || 0;
 
+        const endRedis = process.hrtime(startRedis);
+        const latencyRedis = (endRedis[0] * 1000 + endRedis[1] / 1000000).toFixed(3);
+
+
+        // Live branchmarking sql
+        const startSQL = process.hrtime();
+        await pool.query(
+            'SELECT stok, viewers, revenue FROM tiket_sql WHERE event_id = $1 AND ticket_id = $2',
+            [eventId, ticketId]
+        );
+
+        const endSQL = process.hrtime(startSQL);
+        const latencySQL = (endSQL[0] * 1000 + endSQL[1] / 1000000).toFixed(3);
+
+        // Logika Surge Pricing
         let harga_target = 0;
         if (stok > 0) {
             harga_target = (TARGET_REVENUE - revenue) / stok;
@@ -109,8 +140,6 @@ app.get('/api/status/:eventId/:ticketId', async (req, res) => {
         let status = "Normal";
 
         if (stok > 0) {
-            // DEMO MODE: Menggunakan angka absolute (bukan rasio) 
-            // agar mudah didemonstrasikan di kelas tanpa perlu ratusan tab
             if (viewers >= 4) {
                 harga_demand = HARGA_DASAR * 2.5;
                 status = "CRITICAL SURGE";
@@ -123,16 +152,21 @@ app.get('/api/status/:eventId/:ticketId', async (req, res) => {
         }
 
         const harga_final = Math.max(harga_target, harga_demand, HARGA_DASAR);
-        
-        // Simpan harga final
+
+        // Simpan harga final ter-update ke Redis
         await redisClient.set(`ticket:${eventId}:${ticketId}:price`, harga_final);
 
+        // Respons JSON dikirim dengan menyertakan objek live_latency
         res.json({
             viewers: viewers,
             stok: stok,
             harga_sekarang: Math.round(harga_final),
             revenue: Math.round(revenue),
-            status: status
+            status: status,
+            live_latency: {
+                redis_ms: latencyRedis,
+                sql_ms: latencySQL
+            }
         });
     } catch (error) {
         console.error(error);
@@ -161,18 +195,6 @@ app.post('/api/keluar/:eventId/:ticketId', async (req, res) => {
             await redisClient.decr(key);
         }
         res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ success: false });
-    }
-});
-
-// RESET VIEWERS (Admin Utility)
-app.post('/api/reset-viewers/:eventId/:ticketId', async (req, res) => {
-    try {
-        const { eventId, ticketId } = req.params;
-        const key = `ticket:${eventId}:${ticketId}:viewers`;
-        await redisClient.set(key, 0);
-        res.json({ success: true, message: "Viewers reset to 0" });
     } catch (error) {
         res.status(500).json({ success: false });
     }
@@ -211,13 +233,13 @@ app.post('/api/register', async (req, res) => {
 
         const userKey = `user:${username}`;
         const existingUser = await redisClient.hGetAll(userKey);
-        
+
         if (existingUser && existingUser.username) {
             return res.status(400).json({ success: false, message: 'Username sudah terdaftar' });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        
+
         await redisClient.hSet(userKey, {
             username: username,
             email: email,
@@ -263,7 +285,6 @@ app.post('/api/login', async (req, res) => {
 // Inisialisasi Data & Jalankan Server
 async function startServer() {
     await redisClient.connect();
-    // We don't reset data here anymore because the seeder handles it.
     app.listen(port, () => {
         console.log(`🚀 Backend API berjalan di http://localhost:${port}`);
     });
