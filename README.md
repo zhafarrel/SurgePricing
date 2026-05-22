@@ -194,12 +194,6 @@ Untuk membuktikan ketangguhan sistem di depan dosen, berikut adalah beberapa *te
 
 ![Live Statistics Benchmarking](ss-live-statistics.png)
 
-### 4. Test Case: Route Guard & Stateless JWT (Keamanan)
-*   **Tujuan:** Memastikan halaman admin/utama sepenuhnya terlindungi dari akses anonim dan menggunakan sesi *stateless*.
-*   **Langkah Pengujian:**
-    1. Dalam keadaan belum *login*, paksa ketik URL `http://localhost:3000/admin` atau `/`.
-    2. *Login* secara normal, lalu hapus token JWT dari `localStorage` via Developer Tools (Application -> Local Storage), lalu lakukan *refresh*.
-*   **Ekspektasi (Expected Result):** Sistem akan langsung memblokir akses dan melempar (*redirect*) pengguna kembali ke halaman `/login`.
 
 ## Keamanan & Catatan produksi
 - JWT secret saat ini di-commit sebagai konstanta (`surgeticket-secret-dev-key`) — untuk produksi, gunakan environment variable dan rotate secret.
