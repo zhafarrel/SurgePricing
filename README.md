@@ -76,11 +76,7 @@ Semua path diawali `/api`.
 	- Deskripsi: melakukan pembelian: decrement stock atomik, tambahkan revenue sesuai `ticket:<...>:price`
 	- Response: { success: true|false, message }
 
-- POST /api/register
-	- Deskripsi: register user baru; body JSON: { username, email, password }
 
-- POST /api/login
-	- Deskripsi: login user; body JSON: { username, password } → mengembalikan JWT token
 
 Contoh response (status ticket):
 
@@ -196,7 +192,6 @@ Untuk membuktikan ketangguhan sistem di depan dosen, berikut adalah beberapa *te
 
 
 ## Keamanan & Catatan produksi
-- JWT secret saat ini di-commit sebagai konstanta (`surgeticket-secret-dev-key`) — untuk produksi, gunakan environment variable dan rotate secret.
 - Perlu rate-limiting / proteksi terhadap bot (viewers counter mudah dimanipulasi tanpa otentikasi).
 - Pembayaran/settlement harus di-offload ke sistem yang menjamin atomic financial transactions (tidak cukup hanya Redis tanpa audit trail di RDBMS atau ledger specialized service).
 
