@@ -157,6 +157,50 @@ Beberapa keputusan desain dan trade-offs yang dicatat dalam presentasi:
 4) Durability: AOF vs RDB
 	 - Untuk menghindari kehilangan mutasi pada crash, AOF (Append Only File) memberikan durability lebih baik dibanding snapshot RDB, namun menambah latensi I/O.
 
+## Testing & Test Cases (Pengujian Sistem)
+Untuk membuktikan ketangguhan sistem di depan dosen, berikut adalah beberapa *test case* utama yang wajib didemonstrasikan beserta ekspektasinya:
+
+### 1. Test Case: Atomic Decrement (Anti-Overselling)
+*   **Tujuan:** Memastikan tidak terjadi minus stok (*race condition*) saat banyak pembeli merebutkan 1 tiket terakhir.
+*   **Langkah Pengujian:**
+    1. Pastikan stok tiket tertentu tersisa 1 (bisa disesuaikan via Redis CLI atau dibeli berulang kali sampai sisa 1).
+    2. Buka 2 tab browser secara berdampingan.
+    3. Tekan tombol "Order Ticket" pada kedua tab secara presisi di detik yang sama.
+*   **Ekspektasi (Expected Result):** Hanya 1 tab yang mendapatkan notifikasi hijau ("Ticket secured successfully!"). Tab lainnya akan mendapatkan notifikasi merah/error ("Sold Out"). Stok di database terjamin tidak akan pernah menjadi -1.
+
+![Atomic Decrement Test](ss-atomic-decrement.png)
+
+### 2. Test Case: Real-time Surge Pricing (Harga Dinamis)
+*   **Tujuan:** Membuktikan algoritma kenaikan harga bereaksi instan berdasarkan jumlah penonton aktif tanpa lag.
+*   **Langkah Pengujian:**
+    1. Buka 1 tab browser ke halaman detail event (misal: The Weeknd). Pastikan harga saat ini adalah Harga Normal.
+    2. Buka 1 tab *Incognito* / gunakan perangkat teman ke URL tiket yang sama. (Total ada 2 viewers).
+    3. Tambah lagi 2 perangkat/tab baru (Total ada 4 viewers).
+    4. Tutup 3 tab ekstra tersebut secara bersamaan.
+*   **Ekspektasi (Expected Result):** 
+    *   Saat 2 viewers: Harga otomatis naik 1.5x lipat dan status berkedip **SURGE PRICING**.
+    *   Saat 4 viewers: Harga naik 2.5x lipat dan status berubah menjadi **CRITICAL SURGE**.
+    *   Saat tab lain ditutup: Harga langsung turun kembali ke normal secara *real-time* tanpa perlu *refresh*.
+
+![Surge Pricing Test](ss-surge-pricing.png)
+
+### 3. Test Case: Live Benchmarking (Redis vs PostgreSQL)
+*   **Tujuan:** Menunjukkan bukti empiris bahwa latensi baca (*Read Latency*) NoSQL Redis jauh lebih superior dibanding SQL relasional konvensional di skenario baca berintensitas tinggi.
+*   **Langkah Pengujian:**
+    1. Pastikan servis PostgreSQL menyala dan `node seed-sql.js` sudah dieksekusi.
+    2. Buka halaman Live Statistics atau halaman detail.
+    3. *Refresh* halaman beberapa kali dan perhatikan indikator latensi di layar (atau tab *Network* di Developer Tools).
+*   **Ekspektasi (Expected Result):** Indikator Redis Latency (*In-Memory*) akan berada di angka desimal milidetik (misal: 0.5ms - 2ms), sedangkan PostgreSQL Latency (*Disk I/O*) akan cenderung lebih besar dan berfluktuasi.
+
+![Live Statistics Benchmarking](ss-live-statistics.png)
+
+### 4. Test Case: Route Guard & Stateless JWT (Keamanan)
+*   **Tujuan:** Memastikan halaman admin/utama sepenuhnya terlindungi dari akses anonim dan menggunakan sesi *stateless*.
+*   **Langkah Pengujian:**
+    1. Dalam keadaan belum *login*, paksa ketik URL `http://localhost:3000/admin` atau `/`.
+    2. *Login* secara normal, lalu hapus token JWT dari `localStorage` via Developer Tools (Application -> Local Storage), lalu lakukan *refresh*.
+*   **Ekspektasi (Expected Result):** Sistem akan langsung memblokir akses dan melempar (*redirect*) pengguna kembali ke halaman `/login`.
+
 ## Keamanan & Catatan produksi
 - JWT secret saat ini di-commit sebagai konstanta (`surgeticket-secret-dev-key`) — untuk produksi, gunakan environment variable dan rotate secret.
 - Perlu rate-limiting / proteksi terhadap bot (viewers counter mudah dimanipulasi tanpa otentikasi).
